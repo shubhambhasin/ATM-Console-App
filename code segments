@@ -1,0 +1,194 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <string.h> 
+#define LINE printf("\n");
+#define INPUT printf("-->\t");
+
+
+typedef struct bank *vault;
+typedef struct bank
+{
+    float money;
+}atm;
+
+
+typedef struct user *ulist;
+typedef struct user
+{
+    int userid,pin;
+    int type,state;  // for type = 0 customer, 1 admin. for state = 0 active, 1 locked
+    float sum;
+    ulist *next;
+}users;
+
+
+typedef struct log *hlist;
+typedef struct log
+{
+    int operation,opuserid;
+    float opactivity;
+    hlist *next;
+}logs; 
+
+
+
+
+
+
+
+
+
+
+ulist client_hlist (void);
+hlist history_hlist(void);
+
+//ATM Structures functions 
+atm banknotes(float balance);
+atm read_vaultdb();
+
+//Users login functions 
+int login(ulist header,hlist headerh, int acctno, int acctpin,atm cash);
+void userlogin ();
+
+int search_client(ulist header,int key); //returns 1 if it finds, 0 otherwise
+void create_log(hlist headerh,int noperation, int nopuserid,float noactions);
+
+//Display functions
+void option1(ulist header,hlist headerh,int login,int pin,atm cash);
+void option2(ulist header,hlist headerh,int login,int pin,atm cash);
+void menu(ulist header,hlist headerh,int login,int pin,atm cash);
+void menu2(ulist header,hlist headerh,int login, int pin,atm cash);
+
+//Admin functions 
+void create_client(ulist header,hlist headerh,int login,int pin,atm cash);
+void create_user(ulist header, int nuserid, int npin, float namount, int ntype, int nstate);
+void print_log(ulist header,hlist headerh,int login,int pin,atm cash);
+void delete_client(ulist header,hlist headerh,int login, int pin,atm cash);
+void print_clients(ulist header,hlist headerh,int login,int pin,atm cash);
+int unlock_client(ulist header,hlist headerh,int login, int pin,atm cash);  
+
+//Customer functions 
+void query_acct(ulist header,hlist headerh,int login, int pin,atm cash);
+void cust_deposit(ulist header, hlist headerh,int login, int pin, atm cash);
+void cust_transfer(ulist header,hlist headerh,int login, int pin,atm cash);
+void cust_withdraw(ulist header,hlist headerh, int login, int pin, atm cash);
+void print_custlog(ulist header,hlist headerh,int login,int pin,atm cash);
+int change_client_pin(ulist header,hlist headerh,int login,int pin,atm cash); 
+
+//Read&Write functions
+void write_custdb(ulist header);
+void read_custdb(ulist header);
+void read_logdb(hlist headerh);
+void write_logdb(hlist headerh);
+void write_vaultdb(atm cash);
+
+
+
+
+
+//Writes Funds added to ATM Total Funds to file
+void write_vaultdb(atm cash)
+{
+    FILE *f_cash = fopen("vault.txt", "w");
+    fprintf(f_cash,"%6.2f",cash.money );
+    fclose(f_cash);
+}
+//--------------------------------------------------------------------------//
+//Reads ATM Total Funds available from file
+atm read_vaultdb()
+{
+    float money;
+    float balance;
+ 
+    FILE *f_cash = fopen("vault.txt", "r");
+    if (f_cash == NULL)
+    {
+        FILE *f_cash = fopen("vault.txt", "w");
+        fscanf(f_cash,"%f",&balance);
+        return banknotes(balance);
+    }
+    else
+        fscanf(f_cash,"%f", &money);
+    return banknotes(money);
+}
+//--------------------------------------------------------------------------//
+//Reads Customers information from file ie. account no, pin, total funds, account type, and status
+void read_custdb(ulist header)
+{
+    int i,pin,type,state,userid;
+    float sum;
+    
+    FILE *f_clients= fopen("customers.txt", "r"); 
+    int res = fscanf(f_clients, "%d\t\t%d\t\t%f\t\t%d\t\t%d\n", &userid,&pin,&sum,&type,&state);
+    for (i = 0; res > 0; i++)
+    {
+        create_user(header,userid,pin,sum,type,state);
+        res = fscanf(f_clients, "%d\t\t%d\t\t%f\t\t%d\t\t%d\n", &userid,&pin,&sum,&type,&state);
+    }
+    fclose (f_clients);
+}
+//---------------------------------------------------------------------------//
+//Writes customers banking details to file ie. account no, pin, total funds, account type, and status
+void write_custdb(ulist header)
+{
+    ulist l=header->next;
+    FILE *f_clients = fopen("customers.txt", "w");
+ 
+    while (l)
+    {
+        fprintf (f_clients, "%d\t\t%d\t\t%6.2f\t\t%d\t\t%d\n", l->userid,l->pin,l->sum,l->type,l->state); 
+        l=l->next;
+    }
+    fclose(f_clients);
+}
+//-----------------------------------------------------------------------------//
+//Checks and Reads Activity logs to and from File
+void read_logdb(hlist headerh)
+{
+    int nop,nuid,i;
+    float ndest;
+    hlist l = headerh->next;
+
+    FILE *f_hist = fopen("logs.txt", "r");
+    if (f_hist == NULL)
+    {
+        FILE *f_hist = fopen("logs.txt", "w");
+    }
+    else
+    {
+        int res = fscanf(f_hist, "%d %d %f\n", &nop,&nuid,&ndest);
+        for (i = 0; res > 0; i++)
+        {
+            create_log(headerh,nop,nuid,ndest);
+            res = fscanf(f_hist, "%d %d %f\n", &nop,&nuid,&ndest);
+        }
+        fclose (f_hist);
+    }
+}
+//-----------------------------------------------------------------------------//
+//Writes Activity logs to File
+void write_logdb(hlist headerh)
+{
+    hlist l=headerh->next;
+    FILE *f_hist= fopen("logs.txt", "w");
+ 
+    while (l)
+    {
+        fprintf (f_hist,"%d %d %6.2f\n",l->operation,l->opuserid,l->opactivity); 
+        l=l->next;
+    }
+    fclose(f_hist);
+}
+
+
+
+
+
+ulist d = header->next;
+ cash.money+=value;
+d->sum-=fee;
+d->sum+=total;  
+
+
+
